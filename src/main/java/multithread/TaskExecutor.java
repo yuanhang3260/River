@@ -7,10 +7,11 @@ import java.util.Queue;
 import java.util.LinkedList;
 
 import multithread.AbstractFuture;
+import multithread.SingleThreadExecutor;
 import multithread.IFuture;
 
 // Single-threaded queued task executor.
-public class TaskExecutor {
+public class TaskExecutor implements SingleThreadExecutor {
 
   protected class FutureTask<V> extends AbstractFuture<V> implements Runnable {
     private Callable<V> task;
@@ -98,23 +99,28 @@ public class TaskExecutor {
     this.worker.start();
   }
 
+  @Override
   public Thread thread() {
     return this.worker;
   }
 
+  @Override
   public boolean isIdle() {
     return this.state == State.IDLE;
   }
 
+  @Override
   public boolean inEventLoop() {
-    return this.thread == Thread.currentThread();
+    return this.worker == Thread.currentThread();
   }
 
+  @Override
   public IFuture<?> submit(Runnable runnable) {
     FutureTask<Void> ftask = new FutureTask<Void>(runnable);
     return submit0(ftask) ? ftask : null;
   }
 
+  @Override
   public <V> IFuture<V> submit(Callable<V> callable) {
     FutureTask<V> ftask = new FutureTask<V>(callable);
     return submit0(ftask) ? ftask : null;
