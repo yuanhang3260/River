@@ -17,12 +17,12 @@ public class ClientChannel extends AbstractChannel {
 
   // ------------------------------ Lower level IO functions ------------------------------------ //
   @Override
-  public void bind(SocketAddress local, ChannelFuture future) {
-
+  public void bind(SocketAddress local, ChannelPromise promise) {
+    
   }
 
   @Override
-  public void connect(SocketAddress local, SocketAddress remote, ChannelFuture future) {
+  public void connect(SocketAddress local, SocketAddress remote, ChannelPromise promise) {
 
   }
 
@@ -32,17 +32,17 @@ public class ClientChannel extends AbstractChannel {
   }
 
   @Override
-  public void write(ByteBuf data, ChannelFuture future) {
+  public void write(ByteBuf data, ChannelPromise promise) {
 
   }
 
   @Override
-  public void flush(ChannelFuture future) {
+  public void flush(ChannelPromise promise) {
 
   }
 
   @Override
-  public void close(ChannelFuture future) {
+  public void close(ChannelPromise promise) {
 
   }
 }

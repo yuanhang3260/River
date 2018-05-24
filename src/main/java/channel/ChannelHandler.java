@@ -3,7 +3,8 @@ package channel;
 import java.net.SocketAddress;
 
 import channel.AbstractChannel;
-import channel.ChannelFuture;
+import channel.ChannelPromise;
+import channel.DefaultChannelFuture;
 import multithread.TaskExecutor;
 
 public abstract class ChannelHandler {
@@ -79,47 +80,47 @@ public abstract class ChannelHandler {
 
   // ---------------------------------- Outbound events ----------------------------------------- //
   // bind
-  public ChannelFuture bind(SocketAddress local) {
-    return bind(local, new ChannelFuture());
+  public ChannelPromise bind(SocketAddress local) {
+    return bind(local, new DefaultChannelFuture());
   }
 
-  public ChannelFuture bind(SocketAddress local, ChannelFuture future) {
-    return future;
+  public ChannelPromise bind(SocketAddress local, ChannelPromise promise) {
+    return promise;
   }
 
   // connect
-  public ChannelFuture connect(SocketAddress local, SocketAddress remote) {
-    return connect(local, remote, new ChannelFuture());
+  public ChannelPromise connect(SocketAddress local, SocketAddress remote) {
+    return connect(local, remote, new DefaultChannelFuture());
   }
 
-  public ChannelFuture connect(SocketAddress local, SocketAddress remote, ChannelFuture future) {
-    return future;
+  public ChannelPromise connect(SocketAddress local, SocketAddress remote, ChannelPromise promise) {
+    return promise;
   }
 
   // write
-  public ChannelFuture write(Object msg) {
-    return write(msg, new ChannelFuture());
+  public ChannelPromise write(Object msg) {
+    return write(msg, new DefaultChannelFuture());
   }
 
-  public ChannelFuture write(Object msg, ChannelFuture future) {
-    return future;
+  public ChannelPromise write(Object msg, ChannelPromise promise) {
+    return promise;
   }
 
   // flush
-  public ChannelFuture flush() {
-    return flush(new ChannelFuture());
+  public ChannelPromise flush() {
+    return flush(new DefaultChannelFuture());
   }
 
-  public ChannelFuture flush(ChannelFuture future) {
-    return future;
+  public ChannelPromise flush(ChannelPromise promise) {
+    return promise;
   }
 
   // close
-  public ChannelFuture close() {
-    return close(new ChannelFuture());
+  public ChannelPromise close() {
+    return close(new DefaultChannelFuture());
   }
 
-  public ChannelFuture close(ChannelFuture future) {
-    return future;
+  public ChannelPromise close(DefaultChannelFuture promise) {
+    return promise;
   }
 }

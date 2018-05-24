@@ -1,7 +1,6 @@
 package channel;
 
-import multithread.AbstractFuture;
+import multithread.IFuture;
 
-public class ChannelFuture extends AbstractFuture {
-  
+public interface ChannelFuture extends IFuture<Void> {
 }

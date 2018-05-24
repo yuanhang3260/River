@@ -226,10 +226,6 @@ public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
     return true;
   }
 
-  public boolean setSuccess() {
-    return this.setSuccess(null);
-  }
-
   @Override
   public boolean setFailure(Throwable cause) {
     if (isDone()) {
