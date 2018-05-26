@@ -80,18 +80,18 @@ public class TaskExecutor implements SingleThreadExecutor {
     }
   }
 
-  private enum State {
+  protected enum State {
     INIT,
     RUNNING,
     IDLE,
-    STOPPED
+    STOPPED,
   }
 
-  private Thread worker;
+  protected Thread worker;
 
-  private Queue<FutureTask<?>> tasks = new LinkedList<FutureTask<?>>();
-  private volatile State state = State.INIT;
-  private Object lock = new Object();
+  protected Queue<FutureTask<?>> tasks = new LinkedList<FutureTask<?>>();
+  protected volatile State state = State.INIT;
+  protected Object lock = new Object();
 
   public TaskExecutor() {
     this.worker = new Thread(() -> { this.runWorker(); });
@@ -115,6 +115,11 @@ public class TaskExecutor implements SingleThreadExecutor {
   }
 
   @Override
+  public void execute(Runnable runnable) {
+    submit(runnable);
+  }
+
+  @Override
   public IFuture<?> submit(Runnable runnable) {
     FutureTask<Void> ftask = new FutureTask<Void>(runnable);
     return submit0(ftask) ? ftask : null;
@@ -126,7 +131,7 @@ public class TaskExecutor implements SingleThreadExecutor {
     return submit0(ftask) ? ftask : null;
   }
 
-  private boolean submit0(FutureTask<?> task) {
+  protected boolean submit0(FutureTask<?> task) {
     synchronized(this.lock) {
       if (this.state == State.STOPPED) {
         System.err.println("Thread pool is stopped, cannot add task");
@@ -139,9 +144,9 @@ public class TaskExecutor implements SingleThreadExecutor {
     return true;
   }
 
-  private void runWorker() {
+  protected void runWorker() {
     try {
-      while (true) {
+      while (!Thread.currentThread().isInterrupted()) {
         FutureTask<?> task;
 
         // Wait for task to come in.
@@ -172,6 +177,7 @@ public class TaskExecutor implements SingleThreadExecutor {
     }
   }
 
+  @Override
   public void stop() {
     synchronized(this.lock) {
       this.state = State.STOPPED;
@@ -179,6 +185,7 @@ public class TaskExecutor implements SingleThreadExecutor {
     }
   }
 
+  @Override
   public void awaitTermination() {
     try {
       this.worker.join();

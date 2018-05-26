@@ -5,11 +5,11 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
 import buffer.ByteBuf;
-import channel.AbstractChannel;
+import channel.BaseChannel;
 import channel.ChannelHeaderHandler;
 import channel.ChannelTailHandler;
 
-public class ClientChannel extends AbstractChannel {
+public class ClientChannel extends BaseChannel {
   // Lower-level network IO.
   private SocketChannel javaChannel;
   private ByteBuf inboundBuf;

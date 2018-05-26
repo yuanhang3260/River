@@ -10,7 +10,7 @@ import channel.ChannelTailHandler;
 import channel.IChannel;
 import multithread.TaskExecutorGroup;
 
-public abstract class AbstractChannel implements IChannel {
+public abstract class BaseChannel implements IChannel {
   // SelectionKey that this channel is bound to.
   protected SelectionKey key;
 

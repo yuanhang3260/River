@@ -2,13 +2,13 @@ package channel;
 
 import java.net.SocketAddress;
 
-import channel.AbstractChannel;
+import channel.BaseChannel;
 import channel.ChannelPromise;
 import channel.DefaultChannelFuture;
 import multithread.TaskExecutor;
 
 public abstract class ChannelHandler {
-  protected AbstractChannel channel;
+  protected BaseChannel channel;
   protected TaskExecutor executor;
 
   private ChannelHandler prev;
