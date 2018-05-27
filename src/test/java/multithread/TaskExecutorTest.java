@@ -32,6 +32,7 @@ public class TaskExecutorTest {
   @Before
   public void setup() throws Exception {
     executor = new TaskExecutor();
+    executor.start();
   }
 
   @After

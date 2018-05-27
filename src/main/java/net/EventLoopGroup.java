@@ -32,6 +32,7 @@ public class EventLoopGroup {
       if (i >= this.eventLoops.size()) {
         EventLoop newEventLoop = new EventLoop(this);
         this.eventLoops.add(newEventLoop);
+        newEventLoop.start();
         return newEventLoop;
       } else {
         return this.eventLoops.get(i);

@@ -1,16 +1,6 @@
 package channel;
 
-import channel.ChannelHandler;
+import channel.ChannelInboundHandler;
 
-public class ChannelHeaderHandler extends ChannelHandler {
-  // Header handler is both inbound and outbound handler.
-  public boolean isInbound() {
-    return true;
-  }
-
-  public boolean isOutbound() {
-    return true;
-  }
-
-  
+public class ChannelHeaderHandler extends ChannelInboundHandler {
 }

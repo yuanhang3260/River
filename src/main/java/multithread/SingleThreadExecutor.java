@@ -14,7 +14,7 @@ public interface SingleThreadExecutor extends IExecutor {
   boolean isIdle();
 
   // If current thread is the executing thread of this executor.
-  boolean inEventLoop();
+  boolean threadRunning();
 
   // Stop the executor. This is graceful stop, which will wait for all pending tasks to be done.
   // Mostly it should be followed by awaitTermination;

@@ -96,6 +96,9 @@ public class TaskExecutor implements SingleThreadExecutor {
   public TaskExecutor() {
     this.worker = new Thread(() -> { this.runWorker(); });
     this.state = State.IDLE;
+  }
+
+  public void start() {
     this.worker.start();
   }
 
@@ -110,7 +113,7 @@ public class TaskExecutor implements SingleThreadExecutor {
   }
 
   @Override
-  public boolean inEventLoop() {
+  public boolean threadRunning() {
     return this.worker == Thread.currentThread();
   }
 
@@ -169,7 +172,6 @@ public class TaskExecutor implements SingleThreadExecutor {
           // New task received, run it!
           task.run();
         } catch (Exception e) {
-
         }
       }
     } catch (InterruptedException e) {

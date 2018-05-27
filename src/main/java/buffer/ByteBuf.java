@@ -1,8 +1,10 @@
 package buffer;
 
+import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.nio.ReadOnlyBufferException;
 import org.apache.log4j.Logger;
 
@@ -236,6 +238,45 @@ public class ByteBuf {
     }
     writeIndex += 2;
     return this;
+  }
+
+  public ByteBuf readFromChannel(SocketChannel channel) {
+    ByteBuffer tmp = ByteBuffer.allocate(1024);
+    while (true) {
+      int readLength = 0;
+      try {
+        readLength = channel.read(tmp);
+        if (readLength < 0) {
+          break;
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+        break;
+      }
+      tmp.flip();
+
+      // Copy data from tmp to internal ByteBuffer.
+      ensureWritable(readLength);
+      markReadIndex();
+      internal.position(writeIndex);
+      internal.put(tmp);
+      writeIndex += readLength;
+      resetReadIndex();
+      tmp.clear();
+    }
+    return this;
+  }
+
+  public int writeToChannel(SocketChannel channel) {
+    try {
+      internal.limit(writeIndex);
+      return channel.write(internal);
+    } catch (IOException e) {
+      e.printStackTrace();
+      return -1;
+    } finally {
+      internal.limit(capacity);
+    }
   }
 
   private void ensureWritable(int needLength) {

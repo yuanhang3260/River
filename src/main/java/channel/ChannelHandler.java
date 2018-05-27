@@ -2,9 +2,12 @@ package channel;
 
 import java.net.SocketAddress;
 
+import buffer.ByteBuf;
 import channel.BaseChannel;
 import channel.ChannelPromise;
+import channel.ChannelFuture;
 import channel.DefaultChannelFuture;
+import multithread.SingleThreadExecutor;
 import multithread.TaskExecutor;
 
 public abstract class ChannelHandler {
@@ -40,6 +43,55 @@ public abstract class ChannelHandler {
       node = node.prev;
     }
     return null;
+  }
+
+  // Link a handler behind this one. If this one already has next handler, the new handler will
+  // be insert between.
+  protected void link(ChannelHandler handler) {
+    ChannelHandler crtNext = this.next;
+    this.next = handler;
+    handler.prev = this;
+    if (crtNext != null) {
+      handler.next = crtNext;
+      crtNext.prev = handler; 
+    }
+  }
+
+  protected SingleThreadExecutor getExecutor() {
+    if (executor != null) {
+      return executor;
+    } else {
+      return channel.getEventLoop();
+    }
+  }
+
+  protected void propagateInbound(Runnable task) {
+    if (next == null) {
+      return;
+    }
+
+    SingleThreadExecutor executor = next.getExecutor();
+    if (executor.threadRunning()) {
+      task.run();
+    } else {
+      executor.execute(task);
+    }
+  }
+
+  protected void propagateOutbound(Runnable task) {
+    SingleThreadExecutor executor;
+    if (prev != null) {
+      executor = prev.getExecutor();
+    } else {
+      // Reach the end of outbound pipeline and hand the IO task to channel itself.
+      executor = channel.getEventLoop();
+    }
+
+    if (executor.threadRunning()) {
+      task.run();
+    } else {
+      executor.execute(task);
+    }
   }
 
   // ---------------------------------- Inbound events ------------------------------------------ //
@@ -79,48 +131,126 @@ public abstract class ChannelHandler {
   }
 
   // ---------------------------------- Outbound events ----------------------------------------- //
+  // doXXX() methods propagates the operation the next outbound handler. User overridden outbound
+  // methods must explicitly call doXXX().
+
   // bind
-  public ChannelPromise bind(SocketAddress local) {
-    return bind(local, new DefaultChannelFuture());
+  public ChannelFuture bind(SocketAddress local) {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    bind(local, future);
+    return future;
   }
 
-  public ChannelPromise bind(SocketAddress local, ChannelPromise promise) {
-    return promise;
+  public void bind(SocketAddress local, ChannelPromise promise) {
+    doBind(local, promise);
+  }
+
+  protected void doBind(SocketAddress local, ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.bind(local, promise);
+        } else {
+          channel.doBind(local, promise);
+        }
+      }
+    });
   }
 
   // connect
-  public ChannelPromise connect(SocketAddress local, SocketAddress remote) {
-    return connect(local, remote, new DefaultChannelFuture());
+  public ChannelFuture connect(SocketAddress remote) {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    connect(remote, future);
+    return future;
   }
 
-  public ChannelPromise connect(SocketAddress local, SocketAddress remote, ChannelPromise promise) {
-    return promise;
+  public void connect(SocketAddress remote, ChannelPromise promise) {
+    doConnect(remote, promise);
+  }
+
+  protected void doConnect(SocketAddress local, ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.connect(local, promise);
+        } else {
+          channel.doConnect(local, promise);
+        }
+      }
+    });
   }
 
   // write
-  public ChannelPromise write(Object msg) {
-    return write(msg, new DefaultChannelFuture());
+  public ChannelFuture write(Object msg) {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    write(msg, future);
+    return future;
   }
 
-  public ChannelPromise write(Object msg, ChannelPromise promise) {
-    return promise;
+  public void write(Object msg, ChannelPromise promise) {
+    doWrite(msg, promise);
+  }
+
+  protected void doWrite(Object msg, ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.write(msg, promise);
+        } else {
+          channel.doWrite((ByteBuf)msg, promise);
+        }
+      }
+    });
   }
 
   // flush
-  public ChannelPromise flush() {
-    return flush(new DefaultChannelFuture());
+  public ChannelFuture flush() {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    flush(future);
+    return future;
   }
 
-  public ChannelPromise flush(ChannelPromise promise) {
-    return promise;
+  public void flush(ChannelPromise promise) {
+    doFlush(promise);
   }
+
+  protected void doFlush(ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.flush(promise);
+        } else {
+          channel.doFlush(promise);
+        }
+      }
+    });
+  }  
 
   // close
-  public ChannelPromise close() {
-    return close(new DefaultChannelFuture());
+  public ChannelFuture close() {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    close(future);
+    return future;
   }
 
-  public ChannelPromise close(DefaultChannelFuture promise) {
-    return promise;
+  public void close(ChannelPromise promise) {
+    doClose(promise);
+  }
+
+  protected void doClose(ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.close(promise);
+        } else {
+          channel.doClose(promise);
+        }
+      }
+    });
   }
 }

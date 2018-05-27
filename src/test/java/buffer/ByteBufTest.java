@@ -1,7 +1,16 @@
 package buffer;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import static org.junit.Assert.*;
 import org.junit.Test;
+import java.util.*;
 
 import buffer.ByteBuf;
 
@@ -209,12 +218,135 @@ public class ByteBufTest {
     bf.putShort((short)4);
     bf.putFloat((float)5.0);
     bf.putLong(6);
-    
+
     assertEquals((char)1, bf.getChar());
     assertEquals(2.0, bf.getDouble(), 0.000001);
     assertEquals(3, bf.getInt());
     assertEquals((short)4, bf.getShort());
     assertEquals((float)5.0, bf.getFloat(), 0.000001);
     assertEquals((long)6, bf.getLong());
+  }
+
+  @Test
+  public void testChannelCommunication() throws InterruptedException {
+    ByteBuf bf = ByteBuf.alloc();
+    bf.putChar((char)1);
+    bf.putDouble(2.0);
+    bf.putInt(3);
+    bf.putShort((short)4);
+    bf.putFloat((float)5.0);
+    bf.putLong(6);
+
+    byte[] data = new byte[10000];
+    for (int i = 0; i < data.length; i++) {
+      data[i] = (byte)i;
+    }
+    bf.put(data);
+
+    int totalBytes = bf.readableBytes();
+
+    ByteBuf recvBuf = ByteBuf.alloc();
+
+    // Server thread.
+    Thread t1 = new Thread(() -> {
+      int bytesReceived = 0;
+      try {
+        // Create server socket channel and set it as non-blocking mode.
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
+        serverChannel.configureBlocking(false);
+
+        // Bind server socket to local listening address.
+        serverChannel.bind(new InetSocketAddress("localhost", 9090));
+        Selector selector = Selector.open();
+        serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+        while (true) {
+          if (selector.select() == 0) {
+            continue;
+          }
+
+          Set<SelectionKey> selectedKeys = selector.selectedKeys();
+          Iterator<SelectionKey> it = selectedKeys.iterator();
+          while (it.hasNext()) {
+            SelectionKey key = it.next();
+            it.remove();
+
+            if (key.isAcceptable()) {
+              serverChannel = (ServerSocketChannel)key.channel();
+              SocketChannel clientChannel = serverChannel.accept();
+              clientChannel.configureBlocking(false);
+              clientChannel.register(selector, SelectionKey.OP_READ);
+            } else if (key.isReadable()) {
+              SocketChannel clientChannel = (SocketChannel)key.channel();
+              recvBuf.readFromChannel(clientChannel);
+              if (recvBuf.readableBytes() == totalBytes) {
+                // All data received.
+                assertEquals((char)1, recvBuf.getChar());
+                assertEquals(2.0, recvBuf.getDouble(), 0.000001);
+                assertEquals(3, recvBuf.getInt());
+                assertEquals((short)4, recvBuf.getShort());
+                assertEquals((float)5.0, recvBuf.getFloat(), 0.000001);
+                assertEquals((long)6, recvBuf.getLong());
+                byte[] buffer = new byte[10000];
+                recvBuf.get(buffer);
+                for (int i = 0; i < buffer.length; i++) {
+                  assertEquals((byte)i, buffer[i]);
+                }
+                clientChannel.close();
+                return;
+              }
+            }
+          }
+        }
+      } catch (IOException e) {
+        fail(e.getMessage());
+      }
+    });
+
+    // Client thread.
+    Thread t2 = new Thread(() -> {
+      try {
+        SocketChannel clientChannel = SocketChannel.open();
+        clientChannel.configureBlocking(false);
+        clientChannel.connect(new InetSocketAddress("localhost", 9090));
+
+        // Create Selector and register channel.
+        Selector selector = Selector.open();
+        clientChannel.register(selector, SelectionKey.OP_CONNECT | SelectionKey.OP_WRITE);
+
+        while (true) {
+          // block.
+          if (selector.select() == 0) {
+            continue;
+          }
+
+          Set<SelectionKey> selectedKeys = selector.selectedKeys();
+          Iterator<SelectionKey> it = selectedKeys.iterator();
+          while (it.hasNext()) {
+            SelectionKey key = it.next();
+            it.remove();
+
+            clientChannel = (SocketChannel)key.channel();
+
+            if (key.isConnectable() && clientChannel.isConnectionPending()) {
+              clientChannel.finishConnect();
+              key.interestOps(SelectionKey.OP_WRITE);
+            } else if (key.isWritable()) {
+              bf.writeToChannel(clientChannel);
+              if (bf.readableBytes() == 0) {
+                clientChannel.close();
+                return;
+              }
+            }
+          }
+        }
+      } catch (IOException e) {
+        fail(e.getMessage());
+      }
+    });
+
+    t1.start();
+    t2.start();
+    t1.join();
+    t2.join();
   }
 }

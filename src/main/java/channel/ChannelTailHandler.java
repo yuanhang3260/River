@@ -1,10 +1,6 @@
 package channel;
 
-import channel.ChannelHandler;
+import channel.ChannelOutboundHandler;
 
-public class ChannelTailHandler extends ChannelHandler {
-  public boolean isInbound() {
-    return false;
-  }
-  
+public class ChannelTailHandler extends ChannelOutboundHandler {
 }

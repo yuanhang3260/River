@@ -6,6 +6,7 @@ import java.nio.channels.Selector;
 import java.util.*;
 
 import channel.BaseChannel;
+import channel.ChannelExceptions;
 import multithread.TaskExecutor;
 import net.EventLoopGroup;
 
@@ -25,6 +26,10 @@ public class EventLoop extends TaskExecutor {
 
     this.group = group;
     this.selector = Selector.open();
+  }
+
+  public Selector getSelector() {
+    return this.selector;
   }
 
   @Override
@@ -76,7 +81,11 @@ public class EventLoop extends TaskExecutor {
 
   private void processSelectedKey(SelectionKey key) {
     BaseChannel channel = (BaseChannel)key.attachment();
-    // TODO: channel operations.
+    try {
+      channel.handleNetworkIOEvents();
+    } catch (ChannelExceptions.UnexpectedException e) {
+      e.printStackTrace();
+    }
   }
 
   private void runTasks() {
