@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.*;
+import org.apache.log4j.Logger;
 
 import channel.BaseChannel;
 import channel.ChannelExceptions;
@@ -11,6 +12,7 @@ import multithread.TaskExecutor;
 import net.EventLoopGroup;
 
 public class EventLoop extends TaskExecutor {
+  private static final Logger log = Logger.getLogger(EventLoop.class);
   private static final int SELECT_TIMOUT_MILLISECONDS = 1000;
 
   private EventLoopGroup group;
@@ -43,7 +45,7 @@ public class EventLoop extends TaskExecutor {
 
   @Override
   protected void runWorker() {
-    while (this.state != State.STOPPED && Thread.currentThread().isInterrupted()) {
+    while (this.state != State.STOPPED && !Thread.currentThread().isInterrupted()) {
       boolean hasTasks = false;
       synchronized(this.lock) {
         if (tasks.isEmpty()) {
@@ -55,8 +57,10 @@ public class EventLoop extends TaskExecutor {
       try {
         // If task queue is empty, we enter a blocking select, otherwise do selectNow.
         if (!hasTasks) {
-          selector.select(SELECT_TIMOUT_MILLISECONDS);
+          log.info("Blocking Select");
+          selector.select();
         } else {
+          log.info("SelectNow");
           selector.selectNow();
         }
       } catch (IOException e) {
@@ -104,6 +108,15 @@ public class EventLoop extends TaskExecutor {
       } catch (Exception e) {
         e.printStackTrace();
       }
+    }
+  }
+
+  @Override
+  public void stop() {
+    synchronized(this.lock) {
+      this.state = State.STOPPED;
+      this.lock.notifyAll();
+      this.selector.wakeup();
     }
   }
 }

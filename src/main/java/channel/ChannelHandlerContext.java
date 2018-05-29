@@ -1,59 +1,49 @@
 package channel;
 
 import java.net.SocketAddress;
+import org.apache.log4j.Logger;
 
 import buffer.ByteBuf;
 import channel.BaseChannel;
 import channel.ChannelPromise;
 import channel.ChannelFuture;
-import channel.DefaultChannelFuture;
+import handler.ChannelHandler;
 import multithread.SingleThreadExecutor;
 import multithread.TaskExecutor;
 
-public abstract class ChannelHandler {
+public class ChannelHandlerContext {
+  private static final Logger log = Logger.getLogger(ChannelHandlerContext.class);
+
   protected BaseChannel channel;
+  private ChannelHandler handler;
+
+  private ChannelHandlerContext prev;
+  private ChannelHandlerContext next;
+
   protected TaskExecutor executor;
 
-  private ChannelHandler prev;
-  private ChannelHandler next;
+  public ChannelHandlerContext(BaseChannel channel, ChannelHandler handler) {
+    this.channel = channel;
+    this.handler = handler;
+  }
 
-  public abstract boolean isInbound();
+  public boolean isInbound() {
+    return handler.isInbound();
+  }
 
   public boolean isOutbound() {
-    return !isInbound();
+    return handler.isOutbound();
   }
 
-  protected ChannelHandler findNextInbound() {
-    ChannelHandler node = next;
-    while (node != null) {
-      if (node.isInbound()) {
-        return node;
-      }
-      node = node.next;
-    }
-    return null;
-  }
-
-  protected ChannelHandler findNextOutbound() {
-    ChannelHandler node = prev;
-    while (node != null) {
-      if (node.isOutbound()) {
-        return node;
-      }
-      node = node.prev;
-    }
-    return null;
-  }
-
-  // Link a handler behind this one. If this one already has next handler, the new handler will
-  // be insert between.
-  protected void link(ChannelHandler handler) {
-    ChannelHandler crtNext = this.next;
-    this.next = handler;
-    handler.prev = this;
+  // Link a ChannelHandlerContext behind this one. If this one already has a next node, the new
+  // ChannelHandlerContext will be insert between.
+  protected void link(ChannelHandlerContext ctx) {
+    ChannelHandlerContext crtNext = this.next;
+    this.next = ctx;
+    ctx.prev = this;
     if (crtNext != null) {
-      handler.next = crtNext;
-      crtNext.prev = handler; 
+      ctx.next = crtNext;
+      crtNext.prev = ctx; 
     }
   }
 
@@ -63,6 +53,28 @@ public abstract class ChannelHandler {
     } else {
       return channel.getEventLoop();
     }
+  }
+
+  protected ChannelHandlerContext findNextInbound() {
+    ChannelHandlerContext node = next;
+    while (node != null) {
+      if (node.isInbound()) {
+        return node;
+      }
+      node = node.next;
+    }
+    return null;
+  }
+
+  protected ChannelHandlerContext findNextOutbound() {
+    ChannelHandlerContext node = prev;
+    while (node != null) {
+      if (node.isOutbound()) {
+        return node;
+      }
+      node = node.prev;
+    }
+    return null;
   }
 
   protected void propagateInbound(Runnable task) {
@@ -94,46 +106,68 @@ public abstract class ChannelHandler {
     }
   }
 
-  // ---------------------------------- Inbound events ------------------------------------------ //
-  // channel register event.
-  public void channelRegistered() {}
-
-  public ChannelHandler fireChannelRegistered() {
+  // ------------------------------- Pipeline Inbound Operations -------------------------------- //
+  public ChannelHandlerContext fireChannelRegistered() {
+    propagateInbound(new Runnable() {
+      @Override
+      public void run() {
+        if (next != null) {
+          next.handler.channelRegistered(next);
+        }
+      }
+    });
     return this;
   }
 
-  // channel unregister event.
-  public void channelUnregistered(Object msg) {}
-
-  public ChannelHandler fireChannelUnregistered() {
+  public ChannelHandlerContext fireChannelUnregistered() {
+    propagateInbound(new Runnable() {
+      @Override
+      public void run() {
+        if (next != null) {
+          next.handler.channelUnregistered(next);
+        }
+      }
+    });
     return this;
   }
 
-  // channel active event.
-  public void channelActive() {}
-
-  public ChannelHandler fireChannelActive() {
+  public ChannelHandlerContext fireChannelActive() {
+    propagateInbound(new Runnable() {
+      @Override
+      public void run() {
+        if (next != null) {
+          next.handler.channelActive(next);
+        }
+      }
+    });
     return this;
   }
 
-  // channel inactive event.
-  public void channelInactive() {}
-
-  public ChannelHandler fireChannelInactive() {
+  public ChannelHandlerContext fireChannelInactive() {
+    propagateInbound(new Runnable() {
+      @Override
+      public void run() {
+        if (next != null) {
+          next.handler.channelInactive(next);
+        }
+      }
+    });
     return this;
   }
 
-  // channel read event.
-  public void channelRead() {}
-
-  public ChannelHandler fireChannelRead() {
+  public ChannelHandlerContext fireChannelRead(Object msg) {
+    propagateInbound(new Runnable() {
+      @Override
+      public void run() {
+        if (next != null) {
+          next.handler.channelRead(next, msg);
+        }
+      }
+    });
     return this;
   }
 
-  // ---------------------------------- Outbound events ----------------------------------------- //
-  // doXXX() methods propagates the operation the next outbound handler. User overridden outbound
-  // methods must explicitly call doXXX().
-
+  // ------------------------------ Pipeline Outbound Operations -------------------------------- //
   // bind
   public ChannelFuture bind(SocketAddress local) {
     DefaultChannelFuture future = new DefaultChannelFuture();
@@ -142,15 +176,12 @@ public abstract class ChannelHandler {
   }
 
   public void bind(SocketAddress local, ChannelPromise promise) {
-    doBind(local, promise);
-  }
-
-  protected void doBind(SocketAddress local, ChannelPromise promise) {
     propagateOutbound(new Runnable() {
       @Override
       public void run() {
+        // log.info(handler.getName() + " context: bind");
         if (prev != null) {
-          prev.bind(local, promise);
+          prev.handler.bind(prev, local, promise);
         } else {
           channel.doBind(local, promise);
         }
@@ -165,16 +196,12 @@ public abstract class ChannelHandler {
     return future;
   }
 
-  public void connect(SocketAddress remote, ChannelPromise promise) {
-    doConnect(remote, promise);
-  }
-
-  protected void doConnect(SocketAddress local, ChannelPromise promise) {
+  public void connect(SocketAddress local, ChannelPromise promise) {
     propagateOutbound(new Runnable() {
       @Override
       public void run() {
         if (prev != null) {
-          prev.connect(local, promise);
+          prev.handler.connect(prev, local, promise);
         } else {
           channel.doConnect(local, promise);
         }
@@ -190,15 +217,11 @@ public abstract class ChannelHandler {
   }
 
   public void write(Object msg, ChannelPromise promise) {
-    doWrite(msg, promise);
-  }
-
-  protected void doWrite(Object msg, ChannelPromise promise) {
     propagateOutbound(new Runnable() {
       @Override
       public void run() {
         if (prev != null) {
-          prev.write(msg, promise);
+          prev.handler.write(prev, msg, promise);
         } else {
           channel.doWrite((ByteBuf)msg, promise);
         }
@@ -214,21 +237,17 @@ public abstract class ChannelHandler {
   }
 
   public void flush(ChannelPromise promise) {
-    doFlush(promise);
-  }
-
-  protected void doFlush(ChannelPromise promise) {
     propagateOutbound(new Runnable() {
       @Override
       public void run() {
         if (prev != null) {
-          prev.flush(promise);
+          prev.handler.flush(prev, promise);
         } else {
           channel.doFlush(promise);
         }
       }
     });
-  }  
+  }
 
   // close
   public ChannelFuture close() {
@@ -238,15 +257,11 @@ public abstract class ChannelHandler {
   }
 
   public void close(ChannelPromise promise) {
-    doClose(promise);
-  }
-
-  protected void doClose(ChannelPromise promise) {
     propagateOutbound(new Runnable() {
       @Override
       public void run() {
         if (prev != null) {
-          prev.close(promise);
+          prev.handler.close(prev, promise);
         } else {
           channel.doClose(promise);
         }

@@ -10,5 +10,5 @@ public interface IExecutor {
 
   IFuture<?> submit(Runnable runnable);
 
-  public <V> IFuture<V> submit(Callable<V> callable);
+  <V> IFuture<V> submit(Callable<V> callable);
 }

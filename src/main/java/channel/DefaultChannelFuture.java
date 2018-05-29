@@ -11,4 +11,13 @@ public class DefaultChannelFuture
   public boolean setSuccess() {
     return this.setSuccess(null);
   }
+
+  @Override
+  public void sync() throws Exception {
+    try {
+      this.get();
+    } catch (Exception e) {
+      throw e;
+    }
+  }
 }

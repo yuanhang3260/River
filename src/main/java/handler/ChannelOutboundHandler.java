@@ -1,6 +1,6 @@
-package channel;
+package handler;
 
-import channel.ChannelHandler;
+import handler.ChannelHandler;
 
 public abstract class ChannelOutboundHandler extends ChannelHandler {
   @Override

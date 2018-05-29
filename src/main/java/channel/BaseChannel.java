@@ -7,36 +7,81 @@ import java.nio.channels.SocketChannel;
 
 import buffer.ByteBuf;
 import channel.ChannelExceptions;
-import channel.ChannelHeaderHandler;
-import channel.ChannelTailHandler;
+import channel.ChannelHandlerContext;
 import channel.ChannelPromise;
+import channel.NioChannel;
+import handler.ChannelHandler;
+import handler.ChannelHeaderHandler;
+import handler.ChannelTailHandler;
 import multithread.TaskExecutorGroup;
 import net.EventLoop;
 
-public abstract class BaseChannel {
+public abstract class BaseChannel implements NioChannel {
   // SelectionKey that this channel is bound to.
   protected SelectionKey key;
 
   // EventLoop that this channel is bound to.
   protected EventLoop eventLoop;
 
-  // Handler pipeline.
-  protected ChannelHeaderHandler header;
-  protected ChannelTailHandler tail;
+  // Pipeline.
+  protected ChannelHandlerContext header;
+  protected ChannelHandlerContext tail;
+
+  protected DefaultChannelFuture closeFuture = new DefaultChannelFuture();
 
   public BaseChannel() {
-    header = new ChannelHeaderHandler();
-    tail = new ChannelTailHandler();
+    createHandlerPipeline();
+  }
+
+  private void createHandlerPipeline() {
+    header = new ChannelHandlerContext(this, new ChannelHeaderHandler());
+    tail = new ChannelHandlerContext(this, new ChannelTailHandler());
     header.link(tail);
+  }
+
+  @Override
+  public void addHandler(ChannelHandler handler) {
+    this.header.link(new ChannelHandlerContext(this, handler));
   }
 
   public EventLoop getEventLoop() {
     return this.eventLoop;
   }
 
-  // Network APIs, which are all outbound operations. They simply delegate the call to tail
-  // ChannelHandler, and propagate it all the way down through the outbound pipeline, until
-  // eventually a doXXX() task is added to in EventLoop.
+  public void awaitClose() throws Exception {
+    this.closeFuture.sync();
+  }
+
+  // Inbound network events. They delegate the call to header ChannelHandlerContext to propagate
+  // it all the way up to the end of pipeline.
+  public BaseChannel fireChannelRegistered() {
+    header.fireChannelRegistered();
+    return this;
+  }
+
+  public BaseChannel fireChannelUnregistered() {
+    header.fireChannelUnregistered();
+    return this;
+  }
+
+  public BaseChannel fireChannelActive() {
+    header.fireChannelActive();
+    return this;
+  }
+
+  public BaseChannel fireChannelInactive() {
+    header.fireChannelInactive();
+    return this;
+  }
+
+  public BaseChannel fireChannelRead(Object msg) {
+    header.fireChannelRead(msg);
+    return this;
+  }
+
+  // Outbound network events. They simply delegate the call to tail ChannelHandler, and propagate
+  // it all the way down through the outbound pipeline, until eventually a doXXX() task is added to
+  // in EventLoop.
   public ChannelFuture bind(SocketAddress local) {
     return tail.bind(local);
   }

@@ -240,14 +240,22 @@ public class ByteBuf {
     return this;
   }
 
-  public ByteBuf readFromChannel(SocketChannel channel) {
+  public int readFromChannel(SocketChannel channel) {
+    int totalBytesRead = 0;
     ByteBuffer tmp = ByteBuffer.allocate(1024);
     while (true) {
       int readLength = 0;
       try {
         readLength = channel.read(tmp);
-        if (readLength < 0) {
+        if (readLength == 0) {
           break;
+        }
+        if (readLength < 0) {
+          if (totalBytesRead == 0) {
+            // Reach EOF, channel is close by the other end.
+            return -1;
+          }
+          return totalBytesRead;
         }
       } catch (IOException e) {
         e.printStackTrace();
@@ -263,8 +271,9 @@ public class ByteBuf {
       writeIndex += readLength;
       resetReadIndex();
       tmp.clear();
+      totalBytesRead += readLength;
     }
-    return this;
+    return totalBytesRead;
   }
 
   public int writeToChannel(SocketChannel channel) {

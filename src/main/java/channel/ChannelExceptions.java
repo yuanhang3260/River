@@ -26,4 +26,10 @@ public class ChannelExceptions {
       super(msg);
     }
   }
+
+  public static class ChannelNotInitialized extends Exception {
+    public ChannelNotInitialized() {
+      super();
+    }
+  }
 }

@@ -22,21 +22,20 @@ public class ClientChannel extends BaseChannel {
 
   // Lower-level network IO.
   private SocketChannel javaChannel;
-  private ByteBuf inboundBuf;
   private OutboundBufferQueue outboundBufs;
 
   SocketAddress remote;
   ChannelPromise connectPromise;
 
-  public ClientChannel(NioBootStrap bootstrap) {
+  public ClientChannel(NioBootStrap bootstrap) throws IOException {
     this(bootstrap, null);
   }
 
-  public ClientChannel(NioBootStrap bootstrap, SocketChannel channel) {
+  public ClientChannel(NioBootStrap bootstrap, SocketChannel channel) throws IOException {
     this.bootstrap = bootstrap;
-    this.javaChannel = channel;
+    this.eventLoop = bootstrap.getEventLoopGroup().next();
 
-    this.inboundBuf = ByteBuf.alloc();
+    this.javaChannel = channel;
     this.outboundBufs = new OutboundBufferQueue();
   }
 
@@ -50,37 +49,31 @@ public class ClientChannel extends BaseChannel {
 
         connectPromise.setSuccess();
         key.interestOps(SelectionKey.OP_READ);
+        header.fireChannelActive();
       } catch (IOException e) {
         e.printStackTrace();
         connectPromise.setFailure(e);
       }
-    }
-
-    if (key.isReadable()) {
-      inboundBuf.readFromChannel(javaChannel);
-      header.fireChannelRead();
-    }
-
-    if (key.isWritable()) {
+    } else if (key.isReadable()) {
+      ByteBuf inboundBuf = ByteBuf.alloc();
+      int readLength = inboundBuf.readFromChannel(javaChannel);
+      if (readLength >= 0) {
+        header.fireChannelRead(inboundBuf);
+      } else {
+        header.fireChannelInactive();
+      }
+    } else if (key.isWritable()) {
       outboundBufs.flushToChannel(javaChannel);
-      if (outboundBufs.isEmpty()) {
+      if (key.isValid() && outboundBufs.isEmpty()) {
         // No more data is waiting for flushing, remove OP_WRITE from interest ops.
         key.interestOps(key.interestOps() & (~SelectionKey.OP_WRITE));
       }
     }
   }
 
-  // Register the ClientChannel to a EventLoop.
-  public void register(EventLoop eventLoop) throws ClosedChannelException {
-    // Register the channel to selector with OP_READ. Note this ClientChannel Object is attached to
-    // registration.
-    this.key = javaChannel.register(eventLoop.getSelector(), SelectionKey.OP_READ, this);
-    this.eventLoop = eventLoop;
-  }
-
-  public void register(EventLoop eventLoop, int interestOps) throws ClosedChannelException {
-    this.key = javaChannel.register(eventLoop.getSelector(), interestOps, this);
-    this.eventLoop = eventLoop;
+  // Register the ClientChannel to EventLoop.
+  public void register(int interestOps) throws ClosedChannelException {
+    this.key = javaChannel.register(this.eventLoop.getSelector(), interestOps, this);
   }
 
   // ------------------------------ Lower level IO functions ------------------------------------ //
@@ -92,7 +85,7 @@ public class ClientChannel extends BaseChannel {
 
   @Override
   protected void doConnect(SocketAddress remote, ChannelPromise promise) {
-    if (remote != null) {
+    if (this.remote != null) {
       promise.setFailure(
           new ChannelExceptions.ChannelUsedException(
             "ClientChannel already in connection with " + this.remote));
@@ -106,9 +99,8 @@ public class ClientChannel extends BaseChannel {
       }
       this.javaChannel.connect(remote);
 
-      // Register this ClientChannel to a EventLoop and set the interestOps as OP_CONNECT.
-      EventLoop eventloop = bootstrap.getEventLoopGroup().next();
-      register(eventloop, SelectionKey.OP_CONNECT);
+      // Register this ClientChannel to EventLoop and set the interestOps as OP_CONNECT.
+      register(SelectionKey.OP_CONNECT);
 
       // Set remote address, marking this ClientChannel is in connection state.
       this.remote = remote;
@@ -143,10 +135,13 @@ public class ClientChannel extends BaseChannel {
   @Override
   protected void doClose(ChannelPromise promise) {
     try {
+      log.info("Closing connection with " + javaChannel.getRemoteAddress());
       javaChannel.close();
       promise.setSuccess();
+      this.closeFuture.setSuccess();
     } catch (IOException e) {
       promise.setFailure(e);
+      this.closeFuture.setFailure(e);
     }
   }
 }

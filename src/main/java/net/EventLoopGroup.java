@@ -39,4 +39,12 @@ public class EventLoopGroup {
       }
     }
   }
+
+  public void shutdown() {
+    synchronized(this) {
+      for (EventLoop eventLoop : eventLoops) {
+        eventLoop.stop();
+      }
+    }
+  }
 }
