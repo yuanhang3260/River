@@ -48,6 +48,11 @@ public class EventLoop extends TaskExecutor {
     while (this.state != State.STOPPED && !Thread.currentThread().isInterrupted()) {
       boolean hasTasks = false;
       synchronized(this.lock) {
+        // To prevent race condition, we need to check state != STOPPED again. Otherwise it can
+        // be changed to IDLE and invalidates a previous call of stop().
+        if (this.state == State.STOPPED) {
+          return;
+        }
         if (tasks.isEmpty()) {
           this.state = State.IDLE;
           hasTasks = false;
@@ -57,10 +62,10 @@ public class EventLoop extends TaskExecutor {
       try {
         // If task queue is empty, we enter a blocking select, otherwise do selectNow.
         if (!hasTasks) {
-          log.info("Blocking Select");
+          // log.info("Blocking Select");
           selector.select();
         } else {
-          log.info("SelectNow");
+          // log.info("SelectNow");
           selector.selectNow();
         }
       } catch (IOException e) {

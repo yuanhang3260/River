@@ -17,10 +17,10 @@ import handler.ChannelInboundHandler;
 import handler.ChannelOutboundHandler;
 import net.EventLoopGroup;
 
-public class DiscardServer {
-  private static final Logger log = Logger.getLogger(DiscardServer.class);
+public class EchoServer {
+  private static final Logger log = Logger.getLogger(EchoServer.class);
 
-  private static class DiscardHandler extends ChannelInboundHandler {
+  private static class EchoServerHandler extends ChannelInboundHandler {
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
       log.info("Channel active");
@@ -28,35 +28,28 @@ public class DiscardServer {
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) {
-      log.info("Channel inactive");
-      ctx.close();
-      ctx.fireChannelInactive();
-    }
-
-    @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
       log.info("Channel read");
 
       ByteBuf buf = (ByteBuf)msg;
+      // We expect an integer and a double.
       if (buf.readableBytes() < 12) {
         return;
       }
 
-      log.info("received int: " + buf.getInt());
-      log.info("received double: " + buf.getDouble());
+      int vInt = buf.getInt();
+      log.info("received int: " + vInt);
+      double vDobule = buf.getDouble();
+      log.info("received double: " + vDobule);
+
       ctx.fireChannelRead(msg);
-    }
-  }
 
-  private static class DiscardClientHandler extends ChannelOutboundHandler {
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-      ByteBuf buf = ByteBuf.alloc();
-      buf.putInt(1);
-      buf.putDouble(3.5);
+      // Echo back value * 2
+      ByteBuf buf2 = ByteBuf.alloc();
+      buf2.putInt(vInt * 2);
+      buf2.putDouble(vDobule * 2);
+      ctx.write(buf2);
 
-      ctx.write(buf);
       ChannelFuture future = ctx.flush();
       future.addListener(new ChannelFutureListener() {
         @Override
@@ -68,10 +61,46 @@ public class DiscardServer {
     }
   }
 
+  private static class EchoClientHandler extends ChannelOutboundHandler {
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) {
+      ByteBuf buf = ByteBuf.alloc();
+      buf.putInt(1);
+      buf.putDouble(3.5);
+
+      ctx.write(buf);
+      ChannelFuture future = ctx.flush();
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+      log.info("Channel read");
+
+      ByteBuf buf = (ByteBuf)msg;
+      if (buf.readableBytes() < 12) {
+        return;
+      }
+
+      int vInt = buf.getInt();
+      double vDobule = buf.getDouble();
+
+      if (vInt != 2 || Math.abs(vDobule - 7.0) > 0.001) {
+        log.error("Received wrong value " + vInt + " and " + vDobule);
+        System.exit(1);
+      }
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) {
+      log.info("Channel inactive");
+      ctx.close();
+    }
+  }
+
   public static void main(String[] args) throws IOException, InterruptedException {
     // Server thread.
     Thread t1 = new Thread(() -> {
-      log.info("Starting Discard Server");
+      log.info("Starting Echo Server");
       EventLoopGroup bossGroup = new EventLoopGroup(1);
       EventLoopGroup workerGroup = new EventLoopGroup(4);
       try {
@@ -80,7 +109,7 @@ public class DiscardServer {
               .childHandler(new ChannelInitializer() {
                 @Override
                 public void initChannel(NioChannel channel) {
-                  channel.addHandler(new DiscardHandler());
+                  channel.addHandler(new EchoServerHandler());
                 }
               });
 
@@ -106,7 +135,7 @@ public class DiscardServer {
                 .handler(new ChannelInitializer() {
                   @Override
                   public void initChannel(NioChannel channel) {
-                    channel.addHandler(new DiscardClientHandler());
+                    channel.addHandler(new EchoClientHandler());
                   }
                 });
 
