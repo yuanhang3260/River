@@ -35,6 +35,13 @@ public class ByteBuf {
     return new ByteBuf();
   }
 
+  public void clear() {
+    this.capacity = DEFAULT_CAPACITY;
+    this.internal = ByteBuffer.allocate(this.capacity);
+    this.writeIndex = 0;
+    this.mark = -1;
+  }
+
   public int readableBytes() {
     return writeIndex - internal.position();
   }
@@ -174,6 +181,35 @@ public class ByteBuf {
     return this;
   }
 
+  public ByteBuf put(ByteBuffer buf) {
+    int dataLength = buf.limit() - buf.position();  // readable bytes
+    // Copy data from tmp to internal ByteBuffer.
+    ensureWritable(dataLength);
+    markReadIndex();
+    internal.position(writeIndex);
+    internal.put(buf);
+    writeIndex += dataLength;
+    resetReadIndex();
+    return this;
+  }
+
+  public ByteBuf put(ByteBuf other) {
+    int dataLength = other.readableBytes();
+
+    ByteBuffer data = other.internal;
+    data.limit(other.writeIndex);
+
+    ensureWritable(dataLength);
+    markReadIndex();
+    internal.position(writeIndex);
+    internal.put(data);
+    writeIndex += dataLength;
+    resetReadIndex();
+
+    other.clear();
+    return this;
+  }
+
   public ByteBuf putChar(char value) throws BufferOverflowException {
     ensureWritable(2);
     try {
@@ -264,12 +300,7 @@ public class ByteBuf {
       tmp.flip();
 
       // Copy data from tmp to internal ByteBuffer.
-      ensureWritable(readLength);
-      markReadIndex();
-      internal.position(writeIndex);
-      internal.put(tmp);
-      writeIndex += readLength;
-      resetReadIndex();
+      put(tmp);
       tmp.clear();
       totalBytesRead += readLength;
     }

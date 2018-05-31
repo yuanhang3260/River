@@ -349,4 +349,24 @@ public class ByteBufTest {
     t1.join();
     t2.join();
   }
+
+  @Test
+  public void testByteBufCumulation() {
+    ByteBuf buf1 = ByteBuf.alloc();
+    buf1.putInt(1);
+    buf1.putDouble(2.0);
+
+    ByteBuf buf2 = ByteBuf.alloc();
+    buf2.putChar('R');
+    buf2.putLong(3);
+    buf2.putChar('T');
+    buf2.getChar();  // 'R' removed
+
+    buf1.put(buf2);
+    assertEquals(0, buf2.readableBytes());
+    assertEquals(1, buf1.getInt());
+    assertEquals(2.0, buf1.getDouble(), 0.00001);
+    assertEquals(3, buf1.getLong());
+    assertEquals('T', buf1.getChar());
+  }
 }
