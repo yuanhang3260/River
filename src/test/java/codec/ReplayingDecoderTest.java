@@ -7,23 +7,25 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import buffer.ByteBuf;
-import codec.ByteToMessageDecoder;
+import codec.ReplayingDecoder;
 import channel.ChannelHandlerContext;
 import handler.ChannelInboundHandler;
 
-public class ByteToMessageDecoderTest {
+public class ReplayingDecoderTest {
   private class Message {
-    public int vInt;        // 4
-    public double vDouble;  // 8
-    public long vLong;      // 8
-    public char vChar;      // 2
-    public float vFloat;    // 4
+    public int vInt;
+    public double vDouble;
+    public long vLong;
+    public char vChar;
+    public float vFloat;
   }
 
-  private class MessageDecoder extends ByteToMessageDecoder {
+  private class MessageDecoder extends ReplayingDecoder {
     @Override
     public void decode(ByteBuf buf, List<Object> outs) throws Exception {
-      while (buf.readableBytes() >= 26) {
+      int num = buf.getInt();
+
+      for (int i = 0; i < num; i++) {
         Message msg = new Message();
         msg.vInt = buf.getInt();
         msg.vDouble = buf.getDouble();
@@ -56,6 +58,8 @@ public class ByteToMessageDecoderTest {
     MessageDecoder decoder = new MessageDecoder();
 
     ByteBuf buf = ByteBuf.alloc();
+    buf.putInt(1);  // num = 1
+
     buf.putInt(1);
     buf.putDouble(2.0);
     buf.putLong(3);
@@ -78,23 +82,36 @@ public class ByteToMessageDecoderTest {
   }
 
   @Test
-  public void testDecodeMultipleMessages() {
+  public void testDecodeNumedProtocol() {
     ChannelHandlerContext ctx = new MockChannelHandlerContext();
     MessageDecoder decoder = new MessageDecoder();
 
     ByteBuf buf = ByteBuf.alloc();
-    for (int i = 0; i < 100; i++) {
+    buf.putInt(100);  // num = 100
+
+    // Write 50 messages. This is not enough.
+    for (int i = 0; i < 50; i++) {
       buf.putInt(1);
       buf.putDouble(2.0);
       buf.putLong(3);
       buf.putChar('R');
       buf.putFloat((float)4.0);
     }
-    buf.putInt(1);
-    buf.putDouble(2.0);
-    buf.putLong(3);
 
     receiver.clear();
+    decoder.channelRead(ctx, buf);
+    assertEquals(0, receiver.size());
+
+    // Write another 50 messages, now we have 100.
+    buf = ByteBuf.alloc();
+    for (int i = 0; i < 50; i++) {
+      buf.putInt(1);
+      buf.putDouble(2.0);
+      buf.putLong(3);
+      buf.putChar('R');
+      buf.putFloat((float)4.0);
+    }
+
     decoder.channelRead(ctx, buf);
     assertEquals(100, receiver.size());
 
@@ -106,11 +123,5 @@ public class ByteToMessageDecoderTest {
       assertEquals('R', msg.vChar);
       assertEquals(4.0, msg.vFloat, 0.0001);
     }
-
-    buf = ByteBuf.alloc();
-    buf.putChar('R');
-    buf.putFloat((float)4.0);
-    decoder.channelRead(ctx, buf);
-    assertEquals(101, receiver.size());
   }
 }
