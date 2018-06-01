@@ -6,6 +6,7 @@ import java.net.SocketAddress;
 import java.security.MessageDigest;
 import java.util.*;
 import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
 import bootstrap.NioServer;
@@ -60,7 +61,7 @@ public class RpcServer {
       MessageDigest md = MessageDigest.getInstance("MD5");
       md.update(str.getBytes());
       byte[] digest = md.digest();
-      return DatatypeConverter.printHexBinary(digest).toUpperCase();
+      return Hex.encodeHexString(digest).toUpperCase();
     } catch (Exception e) {
       return "";
     }
