@@ -40,8 +40,13 @@ public abstract class BaseChannel implements NioChannel {
   }
 
   @Override
-  public void addHandler(ChannelHandler handler) {
+  public void addInboundHandler(ChannelHandler handler) {
     this.tail.getPrev().link(new ChannelHandlerContext(this, handler));
+  }
+
+  @Override
+  public void addOutboundHandler(ChannelHandler handler) {
+    this.header.link(new ChannelHandlerContext(this, handler));
   }
 
   public EventLoop getEventLoop() {

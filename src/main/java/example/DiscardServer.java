@@ -80,7 +80,7 @@ public class DiscardServer {
               .childHandler(new ChannelInitializer() {
                 @Override
                 public void initChannel(NioChannel channel) {
-                  channel.addHandler(new DiscardHandler());
+                  channel.addInboundHandler(new DiscardHandler());
                 }
               });
 
@@ -106,7 +106,7 @@ public class DiscardServer {
                 .handler(new ChannelInitializer() {
                   @Override
                   public void initChannel(NioChannel channel) {
-                    channel.addHandler(new DiscardClientHandler());
+                    channel.addInboundHandler(new DiscardClientHandler());
                   }
                 });
 

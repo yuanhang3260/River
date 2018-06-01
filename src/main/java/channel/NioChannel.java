@@ -3,5 +3,6 @@ package channel;
 import handler.ChannelHandler;
 
 public interface NioChannel {
-  void addHandler(ChannelHandler handler);
+  void addInboundHandler(ChannelHandler handler);
+  void addOutboundHandler(ChannelHandler handler);
 }

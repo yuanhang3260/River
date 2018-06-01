@@ -216,9 +216,9 @@ public class RpcServer {
               .childHandler(new ChannelInitializer() {
                 @Override
                 public void initChannel(NioChannel channel) {
-                  channel.addHandler(new RpcResponseEncoder());
-                  channel.addHandler(new RpcRequestDecoder());
-                  channel.addHandler(new RpcServerHandler());
+                  channel.addInboundHandler(new RpcRequestDecoder());
+                  channel.addInboundHandler(new RpcServerHandler());
+                  channel.addOutboundHandler(new RpcResponseEncoder());
                 }
               });
 
@@ -244,9 +244,9 @@ public class RpcServer {
                 .handler(new ChannelInitializer() {
                   @Override
                   public void initChannel(NioChannel channel) {
-                    channel.addHandler(new RpcRequestEncoder());
-                    channel.addHandler(new RpcResponseDecoder());
-                    channel.addHandler(new RpcClientHandler());
+                    channel.addInboundHandler(new RpcResponseDecoder());
+                    channel.addInboundHandler(new RpcClientHandler());
+                    channel.addOutboundHandler(new RpcRequestEncoder());
                   }
                 });
 

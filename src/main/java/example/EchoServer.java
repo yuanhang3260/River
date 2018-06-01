@@ -109,7 +109,7 @@ public class EchoServer {
               .childHandler(new ChannelInitializer() {
                 @Override
                 public void initChannel(NioChannel channel) {
-                  channel.addHandler(new EchoServerHandler());
+                  channel.addInboundHandler(new EchoServerHandler());
                 }
               });
 
@@ -135,7 +135,7 @@ public class EchoServer {
                 .handler(new ChannelInitializer() {
                   @Override
                   public void initChannel(NioChannel channel) {
-                    channel.addHandler(new EchoClientHandler());
+                    channel.addInboundHandler(new EchoClientHandler());
                   }
                 });
 
