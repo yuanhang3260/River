@@ -35,6 +35,14 @@ public class ChannelHandlerContext {
     return handler.isOutbound();
   }
 
+  public ChannelHandlerContext getNext() {
+    return next;
+  }
+
+  public ChannelHandlerContext getPrev() {
+    return prev;
+  }
+
   // Link a ChannelHandlerContext behind this one. If this one already has a next node, the new
   // ChannelHandlerContext will be insert between.
   protected void link(ChannelHandlerContext ctx) {
