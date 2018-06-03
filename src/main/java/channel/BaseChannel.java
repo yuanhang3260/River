@@ -116,6 +116,7 @@ public abstract class BaseChannel implements NioChannel {
   protected abstract void doBind(SocketAddress local, ChannelPromise promise);
   protected abstract void doConnect(SocketAddress remote, ChannelPromise promise);
   protected abstract void doWrite(ByteBuf buf, ChannelPromise promise);
+  protected abstract void doWriteAndFlush(ByteBuf buf, ChannelPromise promise);
   protected abstract void doFlush(ChannelPromise promise);
   protected abstract void doClose(ChannelPromise promise);
 }

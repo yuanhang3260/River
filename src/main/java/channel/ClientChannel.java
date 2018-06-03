@@ -133,6 +133,12 @@ public class ClientChannel extends BaseChannel {
   }
 
   @Override
+  protected void doWriteAndFlush(ByteBuf buf, ChannelPromise promise) {
+    outboundBufs.enqueueOutputBuf(buf);
+    doFlush(promise);
+  }
+
+  @Override
   protected void doClose(ChannelPromise promise) {
     try {
       log.info("Closing connection with " + javaChannel.getRemoteAddress());

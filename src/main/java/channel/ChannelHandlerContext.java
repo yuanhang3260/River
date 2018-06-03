@@ -257,6 +257,27 @@ public class ChannelHandlerContext {
     });
   }
 
+  // writeAndFlush
+  public ChannelFuture writeAndFlush(Object msg) {
+    DefaultChannelFuture future = new DefaultChannelFuture();
+    writeAndFlush(msg, future);
+    return future;
+  }
+
+  public void writeAndFlush(Object msg, ChannelPromise promise) {
+    propagateOutbound(new Runnable() {
+      @Override
+      public void run() {
+        if (prev != null) {
+          prev.handler.write(prev, msg, promise);
+          prev.handler.flush(prev, promise);
+        } else {
+          channel.doWriteAndFlush((ByteBuf)msg, promise);
+        }
+      }
+    });
+  }
+
   // close
   public ChannelFuture close() {
     DefaultChannelFuture future = new DefaultChannelFuture();

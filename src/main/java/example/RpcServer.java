@@ -112,8 +112,7 @@ public class RpcServer {
       response.result = RpcServer.calculate(request.num1, request.num2, request.op);
       response.md5 = RpcServer.computeChecksum(request.magic);
 
-      ctx.write(response);
-      ChannelFuture future = ctx.flush();
+      ChannelFuture future = ctx.writeAndFlush(response);
       future.addListener(new ChannelFutureListener() {
         @Override
         // Callback to execute when future is done.

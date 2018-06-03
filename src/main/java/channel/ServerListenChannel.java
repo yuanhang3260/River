@@ -93,6 +93,13 @@ public class ServerListenChannel extends BaseChannel {
   }
 
   @Override
+  protected void doWriteAndFlush(ByteBuf buf, ChannelPromise promise) {
+    promise.setFailure(
+        new ChannelExceptions.MethodNotSupported(
+            "ServerListenChannel does not support writeAndFlush"));
+  }
+
+  @Override
   protected void doFlush(ChannelPromise promise) {
     promise.setFailure(
         new ChannelExceptions.MethodNotSupported("ServerListenChannel does not support flush"));
