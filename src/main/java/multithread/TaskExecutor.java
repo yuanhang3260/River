@@ -169,8 +169,10 @@ public class TaskExecutor implements SingleThreadExecutor {
         }
 
         try {
-          // New task received, run it!
-          task.run();
+          if (!task.isCancelled()) {
+            // New task received, run it!
+            task.run();
+          }
         } catch (Exception e) {
         }
       }
