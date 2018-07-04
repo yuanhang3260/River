@@ -2,11 +2,11 @@ package multithread;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 import multithread.IFuture;
@@ -16,7 +16,7 @@ import multithread.IPromise;
 public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
   protected volatile Object result;
 
-  List<IFutureListener<V>> listeners = new CopyOnWriteArrayList<IFutureListener<V>>();
+  List<IFutureListener<V>> listeners = new ArrayList<IFutureListener<V>>();
 
   // SUCCESS_VOID is a placeholder for a success-void result.
   private static final class SuccessVoid {}
@@ -67,8 +67,8 @@ public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
 
       // Notify all threads that are blocking on get/await.
       notifyAll();
+      notifyListeners();
     }
-    notifyListeners();
     return true;
   }
 
@@ -191,10 +191,22 @@ public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
       } catch (Exception e) {
         e.printStackTrace();
       }
-    } else {
-      this.listeners.add(listener);
+      return this;
     }
-    return this;
+    
+    // Double check.
+    synchronized(this) {
+      if (isDone()) {
+        try {
+          listener.taskDone(this);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      } else {
+        this.listeners.add(listener);
+      }
+      return this;
+    }
   }
 
   private void notifyListeners() {
@@ -221,8 +233,8 @@ public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
 
       this.result = (result != null ? result : SUCCESS_VOID);
       notifyAll();
+      notifyListeners();
     }
-    notifyListeners();
     return true;
   }
 
@@ -239,8 +251,8 @@ public abstract class AbstractFuture<V> implements IFuture<V>, IPromise<V> {
 
       this.result = new FailureResult(cause);
       notifyAll();
+      notifyListeners();
     }
-    notifyListeners();
     return true;
   }
 }
