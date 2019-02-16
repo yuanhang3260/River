@@ -37,7 +37,7 @@ public class ServerListenChannel extends BaseChannel {
   }
 
   @Override
-  public void handleNetworkIOEvents() throws ChannelExceptions.UnexpectedException {
+  public void handleNetworkIOEvents() {
     if (key.isAcceptable()) {
       try {
         SocketChannel clientJavaChannel = serverChannel.accept();

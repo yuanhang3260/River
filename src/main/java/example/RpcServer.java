@@ -2,10 +2,8 @@ package example;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.security.MessageDigest;
 import java.util.*;
-import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
